@@ -1,0 +1,488 @@
+﻿@using OPS.Utility
+
+@{
+    ViewData["Title"] = "技法管理";
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+}
+
+<link href="~/lib/datatables/css/dataTables.bootstrap4.min.css" rel="stylesheet" />
+
+<div class="page-header">
+    <div class="page-block">
+        <div class="row align-items-center">
+            <div class="col-md-12">
+                <div class="page-header-title">
+                    <h2 class="m-b-10 color-txt-title">技法管理</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>技法一覧</h5>
+            </div>
+            <div class="card-body table-border-style">
+                <div class="row m-0">
+                    <div class="col-md-6 p-0 mb-2">
+                        <form id="search">
+                            <div class="form-group row">
+                                <div class="col-sm-6 mb-2">
+                                    <input type="search" class="form-control rounded" placeholder="検索したいキーワードを入力" id="keyword" maxlength="240">
+                                    <input type="hidden" class="form-control rounded" id="keywordKana">
+                                </div>
+                                <span class="col-sm-6 mb-2">
+                                    <button type="button" onclick="$('#main-tb').DataTable().ajax.reload();" class="btn btn-primary rounded">
+                                        <i class="feather mr-2 icon-search"></i>検索
+                                    </button>
+                                </span>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="col-md-6 p-0 text-right mb-2">
+                        <button type="button" class="btn btn-primary rounded mr-1" onclick="addOrUpdateModalShow(0);">
+                            <i class="feather mr-2 icon-plus"></i>新規追加
+                        </button>
+                        <input accept=".csv" hidden id="file-upload-csv" type="file" onchange="onFileSelected()">
+                        <button type="button" class="btn btn-info has-ripple rounded" onclick="selectCsvFile()">
+                            <i class="feather mr-2 icon-upload"></i>CSV取込
+                        </button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped w-100 table-bordered" id="main-tb">
+                        <thead>
+                            <tr class="text-center">
+                                <th width="5%">NO</th>
+                                <th width="15%">技法コード</th>
+                                <th width="35%">技法名</th>
+                                <th width="35%">技法名（ｶﾅ）</th>
+                                <th width="10%">-</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    @Html.AntiForgeryToken()
+    <div id="modal-add-or-update" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content m-t-20percent">
+                <form id="frm-add-or-update" action="">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel">技法新規作成</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="message-text" class="col-form-label label-required">技法コード</label>
+                            <input type="hidden" name="cd" />
+                            <input type="text" class="form-control rounded" placeholder="技法コード" name="code">
+                            <span class="d-none">
+                                <i class="fa fa-exclamation-circle m-r-5 invalid"></i>
+                            </span>
+                        </div>
+                        <div class="form-group">
+                            <label for="message-text" class="col-form-label label-required">技法名</label>
+                            <input type="hidden" name="cd" />
+                            <input type="text" class="form-control rounded" placeholder="技法名" name="name">
+                            <span class="d-none">
+                                <i class="fa fa-exclamation-circle m-r-5 invalid"></i>
+                            </span>
+                        </div>
+                        <div class="form-group">
+                            <label for="message-text" class="col-form-label label-required">技法名（ｶﾅ）</label>
+                            <input type="hidden" name="cd" />
+                            <input type="text" class="form-control rounded" placeholder="技法名（ｶﾅ）" name="nameKana">
+                            <span class="d-none">
+                                <i class="fa fa-exclamation-circle m-r-5 invalid"></i>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary rounded">保存</button>
+                        <button type="button" class="btn  btn-secondary rounded" data-dismiss="modal">キャンセル</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts
+{
+    <script src="~/lib/datatables/js/jquery.dataTables.min.js"></script>
+    <script src="~/lib/datatables/js/dataTables.bootstrap4.min.js"></script>
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function selectCsvFile() {
+            $('#file-upload-csv').click();
+        }
+
+        function onFileSelected() {
+            var fileInput = document.getElementById('file-upload-csv');
+            if (fileInput.files.length === 0) {
+                fileInput.value = '';
+                return;
+            }
+
+            var file = fileInput.files[0];
+            var fileName = file.name;
+            var fileExt = fileName.substr(fileName.lastIndexOf('.') + 1);
+            if (fileExt.toUpperCase() !== 'CSV') {
+                fileInput.value = '';
+                toastr.warning('アプロードファイルはCSVのみ指定ください。');
+                return;
+            }
+
+            var fileSize = file.size;
+            if (fileSize > 10485760) {
+                toastr.warning('10MB以下のファイルをアップロードしてください');
+                return;
+            }
+
+            alConfirm('CSV取込', 'このCSVファイルを取り込みますか？', function (userChoice) {
+                if (userChoice) {
+                    showSpinner();
+                    var verifyToken = $('input[name="__RequestVerificationToken"]').val();
+                    var formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('__RequestVerificationToken', verifyToken);
+
+                    $.ajax({
+                        type: 'POST',
+                        url: 'uploadcsvmsttechnique',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        dataType: 'json',
+                        success: function (res) {
+                            hideSpinner();
+                            if (res.status) {
+                                alSuccess('取込が成功しました。', function () {
+                                    tableMain.DataTable().ajax.reload();
+                                });
+                            }
+                            else {
+                                alError(res.message);
+                            }
+                            fileInput.value = '';
+                        },
+                        error: function (err) {
+                            hideSpinner();
+                            alError('エラーが発生しました。もう一度お試しください。');
+                            fileInput.value = '';
+                        }
+                    });
+                } else {
+                    fileInput.value = '';
+                }
+            });
+        }
+    </script>
+
+    <script>
+        var addOrUpdateModal = $('#modal-add-or-update');
+        var addOrUpdateForm = $('#frm-add-or-update');
+        var tableMain = $('#main-tb');
+
+        $(document).ready(function () {
+
+            $('#search').on('submit', function (e) {
+                $('#main-tb').DataTable().ajax.reload();
+                e.preventDefault();
+                return;
+            });
+
+            // form validation (includes icon to error message)
+            addOrUpdateForm.validate({
+                rules: {
+                    code: {
+                        required: true,
+                        maxlength: 4
+                    },
+                    name: {
+                        required: true,
+                        maxlength: 120
+                    },
+                    nameKana: {
+                        required: true,
+                        maxlength: 240,
+                        checkKana: true
+                    }
+                },
+                messages: {
+                    name: {
+                        required: "このフィールドは必須です。",
+                        maxlength: "120文字以内でご入力ください。"
+                    },
+                    nameKana: {
+                        required: "このフィールドは必須です。",
+                        maxlength: "240文字以内でご入力ください。",
+                        checkKana: "利用可能文字種類：カタカナ、ひらがな、アルファベット、数字"
+                    },
+                    code: {
+                        required: "このフィールドは必須です。",
+                        maxlength: "4文字以内でご入力ください。"
+                    }
+                },
+                errorClass: 'invalid',
+                errorElement: 'span',
+                errorPlacement: function(error, element) {
+                    error.insertAfter(element.next('span').children());
+                },
+                highlight: function(element) {
+                    $(element).next('span').removeClass('d-none');
+                    $(element).next('span').find('.invalid').show();
+                },
+                unhighlight: function(element) {
+                    $(element).next('span').addClass('d-none');
+                },
+                submitHandler: function(e) {
+                    var btnSubmit = $(e).find('button[type="submit"]');
+                    loadingBtn(btnSubmit);
+                    var cd = addOrUpdateForm.find('input[name="cd"]').val();
+                    var code = addOrUpdateForm.find('input[name="code"]').val();
+                    var name = addOrUpdateForm.find('input[name="name"]').val();
+                    var nameKana = addOrUpdateForm.find('input[name="nameKana"]').val();
+                    addOrUpdate(cd, code, name, nameKana,
+                        function(r) {
+                            if (r.status) {
+                                addOrUpdateModal.modal('hide');
+                                if (cd === '0' || cd === 0) {
+                                    toastr.success('新規作成に成功しました。');
+                                    tableMain.DataTable().ajax.reload();
+                                } else {
+                                    toastr.success('編集に成功しました。');
+                                    tableMain.DataTable().ajax.reload(null, false);
+                                }
+                            } else {
+                                toastr.error(r.message);
+                            }
+                            unLoadingBtn(btnSubmit);
+                        });
+                }
+            });
+            // end form validation
+
+            // datatable loading
+
+            jQuery.validator.addMethod("checkKana", function (str) {
+                if (str) {
+                    var regex = /^[\u30A0-\u30FF\uFF60-\uFF9F\{０-９}\{0-9}\{　}\{ }\{ぁ-んァ-ン}\{\r\n}\{ゕ}\{ゖ}\{ゔ}\{ゐ}\{ゑ}\{(}\{)}\{～}\{A-Za-z}]+$/g;
+                    return regex.test(str);
+                }
+            });
+
+            $('#frm-add-or-update input[name="nameKana"]').on('change', function (e) {
+                var str = $(this).val().trim();
+                if (str != "") {
+                    str = replaceStringByArrayOfIndexFullToHaft(str, WKANA, HKANA);
+                    $(this).val(str);
+                }
+            });
+
+            $('#keyword').on('change', function (e) {
+                if ($(this).valid()) {
+                    var str = $('#keyword').val();
+                    str = replaceStringByArrayOfIndexFullToHaft(str, WKANA, HKANA);
+                    $('#keywordKana').val(str);
+                }
+            });
+
+            tableMain.DataTable({
+                "ajax": {
+                    "url": "@Url.Action("LoadTechniqueByFiltering")",
+                    "type": "POST",
+                    "data": function(d) {
+                        d.Keyword = $('#keyword').val();
+                        d.keywordKana = $('#keywordKana').val();
+                    },
+                    "datatype": "json"
+                },
+                "pageLength": 10,
+                "searching": false,
+                "lengthChange": false,
+                "info": false,
+                "columns": [
+                    {
+                        "data": null,
+                        "name": "",
+                        "class": "text-center",
+                        "render": function (data, type, row, meta) {
+                            return meta.row + meta.settings._iDisplayStart + 1;
+                        }
+                    },
+                    {
+                        "data": "code",
+                        "name": "code",
+                        "class": "text-center",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "name",
+                        "name": "name",
+                        "className": "text-too-long-process",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "nameKana",
+                        "name": "nameKana",
+                        "className": "text-too-long-process",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "",
+                        "name": "",
+                        "className": "text-center",
+                        "render": function(data, type, row, meta) {
+                            var html = '<div class = "text-center"><button onclick="addOrUpdateModalShow('+ row.cd +')" type="button" class="btn  btn-primary rounded" >' +
+                                '<i class="feather mr-2 icon-edit-2"></i>編集' +
+                                '</button> ' +
+                                '<button onclick="dele(' + row.cd +')" type="button" class="btn  btn-danger rounded">' +
+                                '<i class="feather mr-2 icon-trash-2"></i>削除 ' +
+                                '</button>'+'</div>';
+                            return html;
+                        }
+                    }
+                ],
+                "serverSide": "true",
+                "order": [1, "asc"],
+                "processing": true,
+                "columnDefs": [
+                    {
+                        "defaultContent": "",
+                        "targets": "_all"
+                    },
+                    {
+                        "targets": [0,4],
+                        "orderable": false
+                    }
+                ]
+            });
+        });
+
+        function addOrUpdateModalShow(cd) {
+            $('#frm-add-or-update').validate().resetForm();
+            formRefresh(addOrUpdateForm);
+            if (parseInt(cd) !== 0) {
+                getDetail(cd, function(r) {
+                    if (r) {
+                        addOrUpdateForm.find('input[name="cd"]').val(cd);
+                        addOrUpdateForm.find('input[name="code"]').val(r.code);
+                        addOrUpdateForm.find('input[name="name"]').val(r.name);
+                        addOrUpdateForm.find('input[name="nameKana"]').val(r.nameKana);
+
+                        if (r.code === '@Constants.NonTechniqueCode') {
+                            addOrUpdateForm.find('input[name="code"]').prop('readonly', true);
+                            addOrUpdateForm.find('input[name="code"]').val('null');
+                            addOrUpdateForm.find('input[name="code"]').css('color', 'transparent');
+                        } else {
+                            addOrUpdateForm.find('input[name="code"]').prop('readonly', false);
+                            addOrUpdateForm.find('input[name="code"]').css('color', '');
+                        }
+                    } else {
+                        toastr.error('');
+                    }
+                    addOrUpdateForm.find('.modal-title').text('技法編集');
+                });
+            } else {
+                formRefresh(addOrUpdateForm);
+                addOrUpdateForm.find('input[name="code"]').prop('readonly', false);
+                addOrUpdateForm.find('input[name="cd"]').val('0');
+                addOrUpdateForm.find('.modal-title').text('技法新規作成');
+            }
+            addOrUpdateModal.modal('show');
+        }
+
+        function getDetail(cd, callback) {
+            $.ajax({
+                url: '@Url.Action("TechniqueDetail")',
+                data: {
+                    cd: cd
+                },
+                cache: false,
+                type: 'GET',
+                success: function(response) {
+                    if (callback && typeof callback == "function") {
+                        callback(response);
+                    }
+                },
+                error: function(error) {
+                    if (callback && typeof callback == "function") {
+                        callback(error);
+                    }
+                }
+            });
+        }
+
+        function addOrUpdate(cd, code, name, nameKana, callback) {
+            var token = $("[name='__RequestVerificationToken']").val();
+            $.ajax({
+                url: '@Url.Action("TechniqueCreateOrUpdate")',
+                data: {
+                    __RequestVerificationToken: token,
+                    cd: cd,
+                    name: name,
+                    code: code,
+                    nameKana: nameKana,
+                },
+                type: 'POST',
+                success: function(response) {
+                    if (callback && typeof callback == "function") {
+                        callback(response);
+                    }
+                },
+                error: function(error) {
+                    if (callback && typeof callback == "function") {
+                        callback(error);
+                    }
+                }
+            });
+        }
+
+        function dele(cd) {
+            alConfirm("技法削除", "この技法を削除します。よろしいですか？", function (e) {
+                if (e) {
+                    var token = $("[name='__RequestVerificationToken']").val();
+                    $.ajax({
+                        type: 'POST',
+                        url: '@Url.Action("TechniqueDelete")',
+                        data: {
+                            __RequestVerificationToken: token,
+                            cd: cd,
+                        },
+                        success: function (response) {
+                            if (response.status) {
+                                toastr.success('削除に成功しました。');
+                                tableMain.DataTable().ajax.reload();
+                            } else {
+                                alError(response.message);
+                            }
+                            return;
+                        },
+                        error: function (error) {
+                            toastr.error(response.message);
+                            tableMain.DataTable().ajax.reload();
+                            return;
+                        }
+                    });
+                }
+                return;
+            });
+        }
+
+    </script>
+}

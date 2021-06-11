@@ -1,0 +1,387 @@
+﻿@{
+    ViewData["Title"] = "消費税管理";
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+}
+
+<link href="~/lib/datatables/css/dataTables.bootstrap4.min.css" rel="stylesheet" />
+
+<div class="page-header">
+    <div class="page-block">
+        <div class="row align-items-center">
+            <div class="col-md-12">
+                <div class="page-header-title">
+                    <h2 class="m-b-10 color-txt-title">
+                        消費税管理
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>消費税一覧</h5>
+            </div>
+            <div class="card-body table-border-style">
+                <div class="row m-0">
+                    <div class="col-md-6 p-0" style="padding: 0;">
+                    </div>
+                    <div class="col-md-6 text-right p-0">
+                        <button type="button" class="btn  btn-primary rounded" data-toggle="modal" onclick="addOrUpdateModalShow(0,0,0,0)"><i class="feather mr-2 icon-plus"></i>新規追加</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table id="main-tb" class="table table-hover table-striped checkIsActive w-100 table-bordered">
+                        <thead>
+                            <tr class="text-center">
+                                <th style="visibility:hidden">CD</th>
+                                <th width="5%">NO</th>
+                                <th>適用開始日</th>
+                                <th>適用終了日</th>
+                                <th>消費税率</th>
+                                <th width="10%">
+                                    -
+                                </th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        @Html.AntiForgeryToken()
+        <div id="modal-add-or-update" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content m-t-20percent">
+                    <div class="modal-header">
+                        <h5 class="modal-title"></h5>
+                        <button type="button" class="close rounded" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    </div>
+                    <form id="frm-add-or-update">
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <input type="hidden" name="cd" />
+                                <label for="startDate" class="col-form-label label-required">適用開始日</label>
+                                <input type="date" name="startDate" class="form-control rounded" placeholder="yyyy/mm/dd" >
+                                <span class="d-none">
+                                    <i class="fa fa-exclamation-circle m-r-5 invalid"></i>
+                                </span>
+                            </div>
+                            <div class="form-group">
+                                <label for="endDate" class="col-form-label">適用終了日</label>
+                                <input type="date" name="endDate" class="form-control rounded" placeholder="yyyy/mm/dd" >
+                                <span class="d-none">
+                                    <i class="fa fa-exclamation-circle m-r-5 invalid"></i>
+                                </span>
+                            </div>
+                            <div class="form-group">
+                                <label for="valuePer" class="col-form-label label-required">消費税率</label>
+                                <input type="text" id="valuePer" name="valueTax" class="form-control rounded" placeholder="消費税率">
+                                <span class="d-none">
+                                    <i class="fa fa-exclamation-circle m-r-5 invalid"></i>
+                                </span>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="submit" id="btnSubmit" class="btn btn-primary rounded">保存</button>
+                                <button type="button" class="btn  btn-secondary rounded" data-dismiss="modal">キャンセル</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@section Scripts{
+    <script src="~/lib/datatables/js/jquery.dataTables.min.js"></script>
+    <script src="~/lib/datatables/js/dataTables.bootstrap4.min.js"></script>
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        var addAndUpdateModal = $('#modal-add-or-update');
+        var addAndUpdateForm = $('#frm-add-or-update');
+        var deleteModal = $('');
+        var btnSubmit = $('#btnSubmit');
+        var tableMain = $('#main-tb');
+        $(document).ready(function () {
+
+            if (isDateNotSupported) {
+                $('input[type="date"]').each(function () {
+                    var value = $(this).val();
+                    $(this).val(value.replace(/-/g, '/'));
+                })
+
+                $('input[type="date"]').datepicker({
+                    dateFormat: 'yy/mm/dd',
+                    changeMonth: true,
+                    changeYear: true,
+                    onSelect: function () {
+                        $(this).blur();
+                    },
+                }).on('blur', function () {
+                    var dateVal = this.value;
+                    if (dateVal) {
+                        if (!moment(dateVal, 'YYYY/M/D', true).isValid()) {
+                            $(this).val(moment(new Date()).format('YYYY/MM/DD'));
+                            $(this).blur();
+                            $(this).change();
+                        } else {
+                            $(this).val(moment(dateVal).format('YYYY/MM/DD'));
+                        }
+                    }
+                });
+            } 
+
+            addAndUpdateForm.validate({
+                rules: {
+                    startDate: {
+                        required: true
+                    },
+                    endDate: {
+                        checkValidDate: true
+                    },
+                    valueTax: {
+                        required: true,
+                        range: [1, 100]
+                    }
+                },
+                messages: {
+                    startDate: {
+                        required: "このフィールドは必須です。"
+                    },
+                    endDate: {
+                        checkValidDate: "終了日は開始日より未来の日付を指定してください。"
+                    },
+                    valueTax: {
+                        required: "このフィールドは必須です。",
+                        range: "1～100までの範囲でご入力ください。"
+                    }
+                },
+                errorClass: 'invalid',
+                errorElement: 'span',
+                errorPlacement: function (error, element) {
+                    error.insertAfter(element.next('span').children());
+                },
+                highlight: function (element) {
+                    $(element).next('span').removeClass('d-none');
+                    $(element).next('span').find('.invalid').show();
+                },
+                unhighlight: function (element) {
+                    $(element).next('span').addClass('d-none');
+                },
+                submitHandler: function (e) {
+                    loadingBtn(btnSubmit);
+                    var cd = addAndUpdateForm.find('input[name="cd"]').val();
+                    var startDate = addAndUpdateForm.find('input[name="startDate"]').val();
+                    var endDate = addAndUpdateForm.find('input[name="endDate"]').val();
+                    var value = addAndUpdateForm.find('input[name="valueTax"]').val();
+                    addOrUpdate(cd, startDate, endDate, value,
+                        function (res) {
+                            if (res.status) {
+                                if (cd === "0" || cd === 0) {
+                                    toastr.success("消費税の新規作成に成功しました。");//Add success
+                                    unLoadingBtn(btnSubmit);
+                                    tableMain.DataTable().ajax.reload();
+                                } else {
+                                    toastr.success("消費税の更新に成功しました。");//update success
+                                    unLoadingBtn(btnSubmit);
+                                    tableMain.DataTable().ajax.reload(null, false);
+                                }
+                                addAndUpdateModal.modal('hide');
+                            } else {
+                                toastr.error(res.message);
+                            }
+                            unLoadingBtn(btnSubmit);
+                    });
+                }
+            });
+        });
+
+        jQuery.validator.addMethod("checkValidDate", function (endDate) {
+            var startdate = $('input[name="startDate"]').val();
+            if (endDate) {
+                return Date.parse(endDate) > Date.parse(startdate);
+            } else {
+                return true;
+            }
+        })
+
+        var t = tableMain.DataTable({
+            "ajax": {
+                    "url": "@Url.Action("LoadTaxesByFiltering")",
+                    "type": "POST",
+                    "data": function (d) {
+                        d.Keyword = $('#keyword').val();
+                    },
+                    "datatype": "json"
+                },
+                "pageLength": 10,
+                "searching": false,
+                "lengthChange": false,
+            "info": false,
+            "columns": [
+                    {
+                        "data": "cd",
+                        "name": "Cd",
+                        "className": "text-center",
+                        "visible": false,
+                        "searchable": false
+                    },
+                    {
+                        "data": null,
+                        "name": "",
+                        "class": "text-center",
+                        "render": function (data, type, row, meta) {
+                            return meta.row + meta.settings._iDisplayStart + 1;
+                        }
+                    },
+                    {
+                        "data": "startDate",
+                        "name": "StartDate",
+                        "className": "text-center"
+                    },
+                    {
+                        "data": "endDate",
+                        "name": "EndDate",
+                        "className": "text-center"
+                    },
+                    {
+                        "data": "value",
+                        "name": "Value",
+                        "className": "text-center",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data + " %";
+                        },
+                    },
+                    {
+                        "data": "",
+                        "name": "",
+                        "render": function (data, type, row, meta) {
+                            var cd = row.cd;
+                            var startdate = row.startDate;
+                            var enddate = row.endDate;
+                            var value = row.value;
+                            var html = '<div class = "text-center"><button type="button" class="btn  btn-primary rounded" data-toggle="modal" data-target="#editModal" onclick ="addOrUpdateModalShow(' + cd + ',\'' + startdate + '\',\'' + enddate + '\',\'' + value + '\')">' +
+                                '<i class="feather mr-2 icon-edit-2"></i>編集' +
+                                '</button>' + ' ' +
+                                '<button type="button" class="btn  btn-danger rounded" data-toggle="modal" data-target="#deleteModal" onclick ="dele(' + cd + ')">' +
+                                '<i class="feather mr-2 icon-trash-2"></i>削除' +
+                                '</button>' + '</div>';
+                            return html;
+                        }
+                    }
+                ],
+                "columnDefs": [
+                    {
+                        "defaultContent": "",
+                        "targets": "_all"
+                    },
+                    {
+                        "targets": [1,5],
+                        "orderable": false
+                    }
+                ],
+                "serverSide": "true",
+            "order": [3, "des"],
+            "processing": true
+        });
+
+        function addOrUpdate(cd, startdate, enddate, value, callback) {
+            var token = $("[name='__RequestVerificationToken']").val();
+            $.ajax({
+                url: '/admin/masterdata/TaxCreateOrUpdate',
+                data: {
+                    __RequestVerificationToken: token,
+                    Cd: parseInt(cd),
+                    StartDate: startdate,
+                    EndDate: enddate,
+                    Value: value
+                },
+                type: 'POST',
+                success: function (res) {
+                    if (callback && typeof callback == "function") {
+                        callback(res);
+                    }
+                },
+                error: function (error) {
+                    if (callback && typeof callback == "function") {
+                        console.log("ERR: ", error);
+                        callback(error);
+                    }
+                }
+            })
+        }
+        function addOrUpdateModalShow(cd, startday, enddate, value) {
+            $('#frm-add-or-update').validate().resetForm();
+            formRefresh(addAndUpdateForm);
+            if (cd !== 0) {// update
+                addAndUpdateForm.find('input[name="cd"]').val(cd);
+                if (isDateNotSupported) {
+                    addAndUpdateForm.find('input[name="startDate"]').val(startday);
+                }
+                else {
+                    addAndUpdateForm.find('input[name="startDate"]').val(startday.replace(/\//gi, "-"));
+                }
+
+                if (enddate == "null") {
+                    addAndUpdateForm.find('input[name="endDate"]').val("");
+                }
+                else {
+                    if (isDateNotSupported) {
+                        addAndUpdateForm.find('input[name="endDate"]').val(enddate);
+                    }
+                    else {
+                        addAndUpdateForm.find('input[name="endDate"]').val(enddate.replace(/\//gi, "-"));
+                    }
+                    
+                }
+                
+                addAndUpdateForm.find('input[name="valueTax"]').val(value);
+                $('.modal-title').text('消費税編集');
+            } else {
+                formRefresh(addAndUpdateForm);
+                addAndUpdateForm.find('input[name="cd"]').val(cd);
+                $('.modal-title').text('消費税新規追加');
+            }
+            addAndUpdateModal.modal('show');
+        }
+        function dele(cd) {
+            var token = $("[name='__RequestVerificationToken']").val();
+            alConfirm("消費税削除", "この消費税を削除します。よろしいですか？", function (e) {
+                if (e) {
+                    $.ajax({
+                        url: "/admin/masterdata/TaxDelete",
+                        data: {
+                            __RequestVerificationToken: token,
+                            cd: cd
+                        },
+                        type: "POST",
+                        success: function (res) {
+                            if (res.status) {
+                                toastr.success('削除に成功しました。');
+                                tableMain.DataTable().ajax.reload();
+                            } else {
+                                alError(response.message);
+                            }
+                            return;
+                        },
+                        error: function (err) {
+                            toastr.error(err.message);
+                            tableMain.DataTable().ajax.reload();
+                            return;
+                        }
+                    })
+                }
+            });
+        }
+
+    </script>
+    <script>
+        if (isDateNotSupported) {
+            document.write('<link href="/lib/jquery-ui/jquery-ui.min.css" rel="stylesheet" type="text/css" />\n');
+            document.write('<script src="/lib/jquery-ui/jquery-ui.min.js"><\/script>\n');
+        }
+    </script>
+}
