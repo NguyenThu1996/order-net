@@ -1,0 +1,149 @@
+﻿@{
+    ViewData["Title"] = "Test Katakana";
+}
+
+<link href="~/lib/datatables/css/dataTables.bootstrap4.min.css" rel="stylesheet" />
+<div class="page-header">
+    <div class="page-block">
+        <div class="row align-items-center">
+            <div class="col-md-12">
+                <div class="page-header-title">
+                    <h2 class="m-b-10 color-txt-title">
+                        Test katakana
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Katakana HaftSizeToFullSize</h5>
+            </div>
+            <div class="card-body table-border-style">
+                <div class="col-xl-12  rounded border" style="margin: 0;">
+                    <form id="katakana" action="">
+                        <div class="form-group row">
+                            <label class="col-sm-3 col-form-label-sm text-right">Haft Size</label>
+                            <div class="col-sm-8">
+                                <textarea rows="8" class="form-control rounded" id="keyword" placeholder="" name="namekana"></textarea>
+                                <span class="d-none">
+                                    <i class="fa fa-exclamation-circle m-r-5 invalid"></i>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <div class="col-sm-3">
+                            </div>
+                            <div class="col-sm-8">
+                                <button type="button" class="btn btn-primary rounded" id="submit">Convert</button>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label class="col-sm-3 col-form-label-sm text-right">Full Size</label>
+                            <div class="col-sm-8">
+                                <textarea rows="8" class="form-control rounded" id="keyword" placeholder="" name="nameKanaConvert" ></textarea>
+                                <span class="d-none">
+                                    <i class="fa fa-exclamation-circle m-r-5 invalid"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts{
+    <script src="~/lib/datatables/js/jquery.dataTables.min.js">IDBCursor</script>
+    <script src="~/lib/datatables/js/dataTables.bootstrap4.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.js"></script>
+    <script>
+        var checkKana = $('#katakana');
+        $(document).ready(function () {
+            // form validation (includes icon to error message)
+            checkKana.validate({
+                rules: {
+                    namekana: {
+                        required: true,
+                        maxlength: 1000,
+                        checkKana: true
+                    }
+                },
+                messages: {
+                    namekana: {
+                        required: "このフィールドは必須です。",
+                        maxlength: "1000内でご入力ください。",
+                        checkKana: "カタカナでご入力ください。"
+                    }
+                },
+                errorClass: 'invalid',
+                errorElement: 'span',
+                errorPlacement: function (error, element) {
+                    error.insertAfter(element.next('span').children());
+                },
+                highlight: function (element) {
+                    $(element).next('span').removeClass('d-none');
+                    $('.invalid').show();
+                },
+                unhighlight: function (element) {
+                    $(element).next('span').addClass('d-none');
+                },
+                submitHandler: function (e) {
+                    var btnSubmit = $(e).find('button[type="submit"]');
+                    loadingBtn(btnSubmit);
+                    var namekana = addOrUpdateForm.find('input[name="namekana"]').val();
+                    checkKana(namekana,
+                        function (r) {
+                            if (r.status) {
+
+                            } else {
+
+                            }
+
+                        });
+                }
+            });
+        });
+
+        function checkKana(namekana, callback) {
+            $.ajax({
+                url: '@Url.Action("HaftSizeToFullSize")',
+                data: {
+                    namekana: namekana
+                },
+                type: 'POST',
+                success: function (response) {
+                    if (callback && typeof callback == "function") {
+                        callback(response);
+                    }
+                },
+                error: function (error) {
+                    if (callback && typeof callback == "function") {
+                        callback(error);
+                    }
+                }
+            });
+        }
+
+        jQuery.validator.addMethod("checkKana", function (str) {
+            if (str) {
+                var regex = /^[\u30A0-\u30FF\uFF60-\uFF9F\{０-９}\{0-9}\{　}\{ }\{\r\n}]+$/g;
+                return regex.test(str);
+            }
+        });
+
+        $('#submit').on('click', function (e) {
+
+            if ($('#katakana textarea[name="namekana"]').valid()) {
+                var str = $('#katakana textarea[name="namekana"]').val();
+                str = replaceStringByArrayOfIndexHalfToFull(str, HKANA, WKANA);
+                $('#katakana textarea[name="nameKanaConvert"]').val(str);
+            }
+
+        });
+    </script>
+}

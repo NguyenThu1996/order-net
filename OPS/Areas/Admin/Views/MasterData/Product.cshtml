@@ -1,0 +1,415 @@
+﻿@{
+    ViewData["Title"] = "作品管理";
+    Layout = "~/Areas/Admin/Views/Shared/_Layout.cshtml";
+}
+@model OPS.ViewModels.Admin.Master.Product.ProductModel
+<link href="~/lib/datatables/css/dataTables.bootstrap4.min.css" rel="stylesheet" />
+<link href="~/lib/bootstrap/dist/css/bootstrap-select.min.css" rel="stylesheet" />
+<link href="~/css/admin/mstArtist.css" rel="stylesheet" />
+<style type="text/css">
+    .text-too-long-process{
+        min-width: 135px;
+    }
+</style>
+<div class="page-header">
+    <div class="page-block">
+        <div class="row align-items-center">
+            <div class="col-md-12">
+                <div class="page-header-title">
+                    <h2 class="m-b-10 color-txt-title">
+                        作品管理
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>作品一覧</h5>
+            </div>
+            <div class="card-body table-border-style">
+                <div class="col-xl-12  rounded border" style="margin: 0;">
+                    <form id="search" class="searchProduct">
+                        <div class="form-group row m-t-10">
+                            <label class="col-md-2 col-sm-3 text-right col-form-label-sm">作家名</label>
+                            <div class="col-md-6 col-sm-8">
+                                <select class="form-control rounded selectpicker border dropdown" data-live-search="true" data-size="10" data-dropup-auto="false" asp-for="@Model.ArtistCd" asp-items="@Model.ListArtist">
+                                    <option value="0">作家選択</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label class="col-md-2 col-sm-3 col-form-label-sm text-right">検索条件</label>
+                            <div class="col-md-6 col-sm-8">
+                                <input type="search" class="form-control rounded" id="keyword" placeholder="検索したいキーワードを入力" name="name" maxlength="240">
+                                <input type="hidden" class="form-control rounded" id="keywordKana">
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <div class="col-md-2 col-sm-3">
+                            </div>
+                            <div class="col-md-6 col-sm-8">
+                                <button type="button" class="btn btn-primary rounded" onclick="$('#main-tb').DataTable().ajax.reload();"><i class="feather mr-2 icon-search" name="namekana"></i>検索</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="float-right p-b-10 p-t-10">
+                    <button type="button" class="btn btn-primary rounded mr-1" onclick="getDetail($(this))">
+                        <i class="feather mr-2 icon-plus"></i>新規追加
+                    </button>
+                    <input accept=".csv" hidden id="file-upload-csv" type="file" onchange="onFileSelected()">
+                    <button type="button" class="btn btn-info has-ripple rounded" onclick="selectCsvFile()">
+                        <i class="feather mr-2 icon-upload"></i>CSV取込
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table id="main-tb" class="table table-hover table-striped w-100 table-bordered">
+                        <thead>
+                            <tr>
+                                <th class="text-center" width="5%">NO</th>
+                                <th class="text-center" width="5%">作家コード</th>
+                                <th class="text-center" width="5%"> 作品コード</th>
+                                <th class="text-center" width="15%">アイテム区分</th>
+                                <th class="text-center" width="10%">作品名（略称）</th>
+                                <th class="text-center" width="10%">アイテム名（略称）</th>
+                                <th class="text-center" width="10%">作品名日本語（正称）</th>
+                                <th class="text-center" width="10%">ｱｲﾃﾑ名日本語（正称）</th>
+                                <th class="text-center" width="10%">作品名（ｶﾅ）</th>
+                                <th class="text-center" width="10%">事業分類</th>
+                                <th class="text-center" width="10%">価格</th>
+                                <th class="text-center" width="30%">技法</th>
+                                <th class="text-center" width="10%"> - </th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    @Html.AntiForgeryToken()
+    <div id="modal-add-or-update" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts{
+    <script src="~/lib/jquery-mask-plugin/dist/jquery.mask.min.js"></script>
+    <script src="~/lib/datatables/js/jquery.dataTables.min.js">IDBCursor</script>
+    <script src="~/lib/datatables/js/dataTables.bootstrap4.min.js"></script>
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/lib/bootstrap/dist/js/bootstrap-select.min.js"></script>
+
+    <script>
+        function selectCsvFile() {
+            $('#file-upload-csv').click();
+        }
+
+        function onFileSelected() {
+            var fileInput = document.getElementById('file-upload-csv');
+            if (fileInput.files.length === 0) {
+                fileInput.value = '';
+                return;
+            }
+
+            var file = fileInput.files[0];
+            var fileName = file.name;
+            var fileExt = fileName.substr(fileName.lastIndexOf('.') + 1);
+            if (fileExt.toUpperCase() !== 'CSV') {
+                fileInput.value = '';
+                toastr.warning('アプロードファイルはCSVのみ指定ください。');
+                return;
+            }
+
+            var fileSize = file.size;
+            if (fileSize > 10485760) {
+                toastr.warning('10MB以下のファイルをアップロードしてください');
+                return;
+            }
+
+            alConfirm('CSV取込', 'このCSVファイルを取り込みますか？', function (userChoice) {
+                if (userChoice) {
+                    showSpinner();
+                    var verifyToken = $('input[name="__RequestVerificationToken"]').val();
+                    var formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('__RequestVerificationToken', verifyToken);
+
+                    $.ajax({
+                        type: 'POST',
+                        url: 'uploadcsvmstproduct',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        dataType: 'json',
+                        success: function (res) {
+                            hideSpinner();
+                            if (res.status) {
+                                alSuccess('取込が成功しました。', function () {
+                                    tableMain.DataTable().ajax.reload();
+                                });
+                            }
+                            else {
+                                alError(res.message);
+                            }
+                            fileInput.value = '';
+                        },
+                        error: function (err) {
+                            hideSpinner();
+                            alError('エラーが発生しました。もう一度お試しください。');
+                            fileInput.value = '';
+                        }
+                    });
+                } else {
+                    fileInput.value = '';
+                }
+            });
+        }
+    </script>
+
+    <script>
+        var addOrUpdateModal = $('#modal-add-or-update');
+        var addOrUpdateForm = $('#frm-add-or-update');
+        var tableMain = $('#main-tb');
+
+        $(document).ready(function () {
+
+            $('#search').on('submit', function (e) {
+                $('#main-tb').DataTable().ajax.reload();
+                e.preventDefault();
+                return;
+            });
+
+            $('#keyword').on('change', function (e) {
+                if ($(this).valid()) {
+                    var str = $('#keyword').val();
+                    str = replaceStringByArrayOfIndexFullToHaft(str, WKANA, HKANA);
+                    $('#keywordKana').val(str);
+                }
+            });
+
+            tableMain.DataTable({
+                "ajax": {
+                    "url": "@Url.Action("LoadProductsByFiltering")",
+                    "type": "POST",
+                    "data": function (d) {
+                        d.Keyword = $('#keyword').val();
+                        d.keywordKana = $('#keywordKana').val();
+                        d.ArtistCd = $("#ArtistCd option:selected").val();
+                    },
+                    "datatype": "json"
+                },
+                "pageLength": 10,
+                "searching": false,
+                "lengthChange": false,
+                "info": false,
+                "columns": [
+                    {
+                        "data": null,
+                        "name": "",
+                        "class": "text-center",
+                        "render": function (data, type, row, meta) {
+                            return meta.row + meta.settings._iDisplayStart + 1;
+                        }
+                    },
+                    {
+                        "data": "artistCode",
+                        "name": "artistCode",
+                        "class": "text-center",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "code",
+                        "name": "code",
+                        "class": "text-center",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "itemCategory",
+                        "name": "itemCategory",
+                        "class": "text-center",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "name",
+                        "name": "name",
+                        "className": "text-too-long-process",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "itemName",
+                        "name": "itemName",
+                        "className": "text-too-long-process",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "originalName",
+                        "name": "originalName",
+                        "className": "text-too-long-process",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "japaneseName",
+                        "name": "japaneseName",
+                        "className": "text-too-long-process",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "nameKana",
+                        "name": "nameKana",
+                        "className": "text-too-long-process",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "categoryName",
+                        "name": "categoryName",
+                        "className": "text-too-long-process",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        },
+                    },
+                    {
+                        "data": "price",
+                        "name": "price",
+                        "className": "text-right",
+                        "render": function (data, type, row, meta) {
+                            data = htmlEncode(data);
+                            return data;
+                        }
+                    },
+                    {
+                        "data": "techniqueName",
+                        "name": "techniqueName",
+                        "render": function (data, type, full, meta) {
+                            var html = '';
+                            for (var i = 0; i < data.length; i++) {
+                                html += '<p>' + htmlEncode(data[i]) + '</p>'
+                            };
+                            return html;
+                        }
+                    },
+                    {
+                        "data": "",
+                        "name": "",
+                        "render": function (data, type, row, meta) {
+                            var cd = row.cd;
+                            var html = '<div class = "text-center"><button data-cd="' + row.cd + '" type="button" class="btn btn-primary rounded" onclick ="getDetail($(this));">' +
+                                '<i class="feather mr-2 icon-edit-2"></i>編集' +
+                                '</button>' + ' ' +
+                                '<button type="button" class="btn  btn-danger" onclick ="dele(' + cd + ')">' +
+                                '<i class="feather mr-2 icon-trash-2"></i>削除' +
+                                '</button>' + '</div>'
+                            return html;
+                        }
+                    }
+                ],
+                "serverSide": "true",
+                "order": [],
+                "processing": true,
+                "columnDefs": [
+                    {
+                        "defaultContent": "",
+                        "targets": "_all"
+                    },
+                    {
+                        "targets": [0,10,11],
+                        "orderable": false
+                    }
+                ]
+                });
+        });
+
+        function getDetail(e) {
+            var cd = e.data('cd');
+            showSpinner()
+            $.ajax({
+                url: '@Url.Action("ProductDetail")',
+                data: {
+                    cd: cd
+                },
+                cache: false,
+                type: 'GET',
+                success: function (response) {
+                    if (response) {
+                        loadContent(response);
+                    }
+                    hideSpinner();
+                },
+                error: function (error) {
+                    hideSpinner();
+                }
+            });
+        }
+
+        function loadContent(html) {
+            addOrUpdateModal.find('.modal-content').html('');
+            addOrUpdateModal.find('.modal-content').append(html);
+            addOrUpdateModal.modal('show');
+            return;
+        }
+
+        function dele(cd) {
+            alConfirm("作品削除", "この作品を削除します。よろしいですか？", function (e) {
+                if (e) {
+                    var token = $("[name='__RequestVerificationToken']").val();
+                    $.ajax({
+                        type: 'POST',
+                        url: '@Url.Action("ProductDelete")',
+                        data: {
+                            __RequestVerificationToken: token,
+                            cd: cd,
+                        },
+                        success: function (response) {
+                            if (response.status) {
+                                toastr.success('削除に成功しました。');
+                                tableMain.DataTable().ajax.reload();
+                            } else {
+                                alError(response.message);
+                            }
+                            return;
+                        },
+                        error: function (error) {
+                            toastr.error(response.message);
+                            tableMain.DataTable().ajax.reload();
+                            return;
+                        }
+                    });
+                }
+                return;
+            });
+        }
+
+    </script>
+}
